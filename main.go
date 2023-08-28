@@ -5,23 +5,25 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	//ini "gopkg.in/ini.v1"
+	ini "gopkg.in/ini.v1"
 	//lipgloss "github.com/charmbracelet/lipgloss"
 	//wakatime_cli "github.com/wakatime/wakatime-cli/cmd"
 )
 
 type Status int
-type MsgString[T any] struct { value T}
+type Msg[T any] struct { value T}
 
 const (
   STARTING Status = iota
   GOTTEN_HOME_DIR
-  TRY_GET_API_KEY
   ASKING_API_KEY  
+  GOTTEN_API_KEY
   ASKING_TYPES
 )
 
 type model struct {
+  height int
+  width int
   wakatime_cfg string
   file_types []string
   file_type_index uint32
@@ -39,35 +41,39 @@ func getHomeDir() tea.Msg{
     return tea.Quit
   }
 
-  var result MsgString[string]
+  var result Msg[string]
   result.value = home+string(os.PathSeparator)+".wakatime.cfg"
   return result
 }
 
+// Returns true if api-key field is set
+// otherwise returns false
+func (m model) checkIfApiKeySet() tea.Msg {
+  cfg, err := ini.Load(m.wakatime_cfg)
+  if err!=nil {
+    //probably file doesn't exist so create it
+    os.Create(m.wakatime_cfg)
+    cfg_n, err := ini.Load(m.wakatime_cfg)
+    if err!=nil {
+      fmt.Printf("Error occured with loading config file: %s, with error: %s", m.wakatime_cfg, err)
+      return tea.Quit
+    }
+    cfg = cfg_n
+  }
 
-//func (m *model) startSetup() {
-//
-//  cfg, err := ini.Load(m.wakatime_cfg)
-//  if err!=nil {
-//    //probably file doesn't exist so create it
-//    os.Create(m.wakatime_cfg)
-//    cfg_n, err := ini.Load(m.wakatime_cfg)
-//    if err!=nil {
-//      fmt.Printf("Error occured with loading config file: %s, with error: %s", m.wakatime_cfg, err)
-//      return tea.Quit
-//    }
-//    cfg = cfg_n
-//  }
-//
-//  if !cfg.HasSection("settings") {
-//    cfg.NewSection("settings")
-//    cfg.SaveTo(m.wakatime_cfg)
-//  }
-//  settings := cfg.Section("settings")
-//  if !settings.HasKey("api-key") {
-//    m.state = ASKING_API_KEY
-//  }
-//}
+  if !cfg.HasSection("settings") {
+    cfg.NewSection("settings")
+    cfg.SaveTo(m.wakatime_cfg)
+  }
+  settings := cfg.Section("settings")
+  var result Msg[bool]
+  if !settings.HasKey("api_key") {
+    result.value=false
+  }else{
+    result.value=true
+  }
+  return result
+}
 
 func (m model) Init() tea.Cmd {
   return nil
@@ -75,6 +81,17 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
   switch msg := msg.(type) {
+    //handle windowsizing
+    case tea.WindowSizeMsg: {
+      m.width = msg.Width
+      m.height = msg.Width
+
+      if m.state == STARTING {
+	return m, getHomeDir
+      }
+      return m, nil
+    }
+
     //handle key presses
     case tea.KeyMsg: {
       switch msg.String() {
@@ -83,12 +100,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
       }
     }
 
-    case MsgString[string]: {
+
+    case Msg[string]: {
       switch m.state {
 	case STARTING: {
 	  m.state = GOTTEN_HOME_DIR
 	  m.wakatime_cfg = msg.value
-	  return m, nil
+	  return m, m.checkIfApiKeySet
+	}
+      }
+    }
+
+    case Msg[bool]: {
+      switch m.state {
+	case GOTTEN_HOME_DIR: {
+	  if msg.value == true {
+	    m.state = GOTTEN_API_KEY
+	    return m, nil
+	  }else{
+	    m.state = ASKING_API_KEY
+	    return m, nil
+	  }
 	}
       }
     }
@@ -107,11 +139,13 @@ func (m model) View() string {
   string_return := ""
 
   switch m.state {
-    case STARTING: string_return += "Loading...."
-    case GOTTEN_HOME_DIR: string_return += fmt.Sprintf("Gotten config @ %s", m.wakatime_cfg)
+    case STARTING: string_return = "Loading...."
+    case GOTTEN_HOME_DIR: string_return = fmt.Sprintf("Gotten config @ %s", m.wakatime_cfg)
     case ASKING_API_KEY: string_return = "Asking for API_KEY"
+    case GOTTEN_API_KEY: string_return = "Found api-key"
   }
 
+  string_return += fmt.Sprintf("\nwidth: %d height: %d", m.width, m.height)
   string_return += "\nPress q to quit "
   return string_return
 }

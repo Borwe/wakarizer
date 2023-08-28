@@ -2,7 +2,10 @@ module wakarizer
 
 go 1.18
 
-require github.com/charmbracelet/bubbletea v0.24.2
+require (
+	github.com/charmbracelet/bubbletea v0.24.2
+	gopkg.in/ini.v1 v1.67.0
+)
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
@@ -16,6 +19,7 @@ require (
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.15.2 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/stretchr/testify v1.8.4 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.11.0 // indirect
 	golang.org/x/term v0.11.0 // indirect
