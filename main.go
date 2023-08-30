@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	ini "gopkg.in/ini.v1"
-	//lipgloss "github.com/charmbracelet/lipgloss"
+	lipgloss "github.com/charmbracelet/lipgloss"
 	//wakatime_cli "github.com/wakatime/wakatime-cli/cmd"
 )
 
@@ -17,13 +18,13 @@ const (
   STARTING Status = iota
   GOTTEN_HOME_DIR
   ASKING_API_KEY  
+  GETTING_API_KEY
   GOTTEN_API_KEY
   ASKING_TYPES
 )
 
 type model struct {
-  height int
-  width int
+  text_input textinput.Model
   wakatime_cfg string
   file_types []string
   file_type_index uint32
@@ -31,7 +32,8 @@ type model struct {
 }
 
 func newModel() (model){
-  return model{ state: STARTING }
+  text_in := textinput.New()
+  return model{ state: STARTING, text_input: text_in }
 }
 
 func getHomeDir() tea.Msg{
@@ -42,7 +44,7 @@ func getHomeDir() tea.Msg{
   }
 
   var result Msg[string]
-  result.value = home+string(os.PathSeparator)+".wakatime.cfg"
+  result.value = home+string(os.PathSeparator)+".wakatime.test.cfg"
   return result
 }
 
@@ -75,28 +77,35 @@ func (m model) checkIfApiKeySet() tea.Msg {
   return result
 }
 
+func (m model) setApiKey(){
+  cfg, err := ini.Load(m.wakatime_cfg)
+  if err!=nil {
+    fmt.Printf("Error, %s occured trying to open %s", err, m.wakatime_cfg)
+  }
+
+  cfg.Section("settings").NewKey("api_key", m.text_input.Value())
+  if cfg.SaveTo(m.wakatime_cfg)!=nil {
+    fmt.Printf("Failed to save %s file", m.wakatime_cfg)
+  }
+}
+
 func (m model) Init() tea.Cmd {
   return nil
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
   switch msg := msg.(type) {
-    //handle windowsizing
-    case tea.WindowSizeMsg: {
-      m.width = msg.Width
-      m.height = msg.Width
-
-      if m.state == STARTING {
-	return m, getHomeDir
-      }
-      return m, nil
-    }
-
     //handle key presses
     case tea.KeyMsg: {
-      switch msg.String() {
-        case "ctrl+c", "q":
-          return m, tea.Quit
+      switch msg.Type {
+        case tea.KeyCtrlC: return m, tea.Quit
+	case tea.KeyEnter: {
+	  if m.state == ASKING_API_KEY {
+	    m.state = GOTTEN_API_KEY
+	    m.setApiKey()
+	    return m, nil
+	  }
+	}
       }
     }
 
@@ -119,39 +128,76 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	    return m, nil
 	  }else{
 	    m.state = ASKING_API_KEY
-	    return m, nil
+	    m.text_input.Placeholder= "Enter Wakatime Api Key"
+	    m.text_input.Width = 100
+	    m.text_input.CharLimit = 100
+	    m.text_input.Focus()
+	    return m, textinput.Blink
 	  }
 	}
       }
     }
+  }
 
-    default : {
-      //do this when starting
-      if m.state == STARTING {
-	return m, getHomeDir
-      }
+
+  switch m.state{
+    //do this when starting
+    case STARTING: return m, getHomeDir
+    case ASKING_API_KEY: {
+      input, cmd := m.text_input.Update(msg);
+      m.text_input = input
+      return m, cmd
     }
   }
+
   return m, nil
 }
 
+func (m model) showMainTitle() string {
+  return lipgloss.NewStyle().
+    Bold(true).
+    Foreground(lipgloss.Color("#FFFFFF")).
+    Background(lipgloss.Color("#EE1111")).
+    Align(lipgloss.Center).
+    Border(lipgloss.DoubleBorder(), true).
+    Render("\nWelcome to Wakarizer\n")
+}
+
+func (m model) showTitle(title string) string {
+  return lipgloss.NewStyle().
+    Bold(true).
+    Foreground(lipgloss.Color("#EEEEEE")).
+    Align(lipgloss.Center).
+    Height(2).
+    Render("\n"+title)
+}
+
+func (m model) showFooter(title string) string {
+  return lipgloss.NewStyle().Bold(true).
+    Foreground(lipgloss.Color("#EE1111")).
+    Align(lipgloss.Center, lipgloss.Bottom).
+    Render(title)
+}
+
 func (m model) View() string {
-  string_return := ""
+  string_return := m.showMainTitle()
 
   switch m.state {
-    case STARTING: string_return = "Loading...."
-    case GOTTEN_HOME_DIR: string_return = fmt.Sprintf("Gotten config @ %s", m.wakatime_cfg)
-    case ASKING_API_KEY: string_return = "Asking for API_KEY"
-    case GOTTEN_API_KEY: string_return = "Found api-key"
+    case STARTING: string_return += m.showTitle("\nLoading....")
+    case GOTTEN_HOME_DIR: string_return += m.showTitle(fmt.Sprintf("\nGotten config @ %s", m.wakatime_cfg))
+    case ASKING_API_KEY: {
+      string_return += m.showTitle("\nPlease input your wakatime api key:\n\n")
+      string_return += m.text_input.View()
+    }
+    case GOTTEN_API_KEY: string_return += m.showTitle("\nSet api key")
   }
 
-  string_return += fmt.Sprintf("\nwidth: %d height: %d", m.width, m.height)
-  string_return += "\nPress q to quit "
+  string_return += m.showFooter("\nPress ctrl+c to quit ")
   return string_return
 }
 
 func main(){
-  p := tea.NewProgram(newModel(), tea.WithAltScreen())
+  p := tea.NewProgram(newModel())
   if _, err := p.Run(); err != nil {
     fmt.Printf("Sorry, failed to start program, with error %s",err)
     os.Exit(1)
