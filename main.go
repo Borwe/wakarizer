@@ -103,7 +103,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	  if m.state == ASKING_API_KEY {
 	    m.state = GOTTEN_API_KEY
 	    m.setApiKey()
-	    return m, nil
+	    return m, textinput.Blink
+	  }
+	}
+	case tea.KeyCtrlV: {
+	  if m.state == ASKING_API_KEY {
+	    return m, textinput.Paste
 	  }
 	}
       }
@@ -158,7 +163,6 @@ func (m model) showMainTitle() string {
     Bold(true).
     Foreground(lipgloss.Color("#FFFFFF")).
     Background(lipgloss.Color("#EE1111")).
-    Align(lipgloss.Center).
     Border(lipgloss.DoubleBorder(), true).
     Render("\nWelcome to Wakarizer\n")
 }
@@ -167,15 +171,12 @@ func (m model) showTitle(title string) string {
   return lipgloss.NewStyle().
     Bold(true).
     Foreground(lipgloss.Color("#EEEEEE")).
-    Align(lipgloss.Center).
-    Height(2).
     Render("\n"+title)
 }
 
 func (m model) showFooter(title string) string {
   return lipgloss.NewStyle().Bold(true).
     Foreground(lipgloss.Color("#EE1111")).
-    Align(lipgloss.Center, lipgloss.Bottom).
     Render(title)
 }
 
@@ -186,12 +187,14 @@ func (m model) View() string {
     case STARTING: string_return += m.showTitle("\nLoading....")
     case GOTTEN_HOME_DIR: string_return += m.showTitle(fmt.Sprintf("\nGotten config @ %s", m.wakatime_cfg))
     case ASKING_API_KEY: {
-      string_return += m.showTitle("\nPlease input your wakatime api key:\n\n")
-      string_return += m.text_input.View()
+      string_return += fmt.Sprintf("%s\n\n%s",m.showTitle("\nWhat is your api key?"), m.text_input.View())
     }
     case GOTTEN_API_KEY: string_return += m.showTitle("\nSet api key")
   }
 
+  if m.state == ASKING_API_KEY {
+    string_return += "\nPress ctrl+v to paste"
+  }
   string_return += m.showFooter("\nPress ctrl+c to quit ")
   return string_return
 }
