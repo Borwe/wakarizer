@@ -3,11 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	ini "gopkg.in/ini.v1"
 	lipgloss "github.com/charmbracelet/lipgloss"
+	ini "gopkg.in/ini.v1"
 	//wakatime_cli "github.com/wakatime/wakatime-cli/cmd"
 )
 
@@ -18,9 +19,10 @@ const (
   STARTING Status = iota
   GOTTEN_HOME_DIR
   ASKING_API_KEY  
-  GETTING_API_KEY
-  GOTTEN_API_KEY
-  ASKING_TYPES
+  SETUP_ASKING_LANGUAGE_TYPES
+  ASKING_LANGUAGE_TYPES
+  VALIDATE_GETTING_LANGUAGES
+  DONE_GETTING_LANGUAGES
 )
 
 type model struct {
@@ -29,6 +31,7 @@ type model struct {
   file_types []string
   file_type_index uint32
   state Status
+  languages []string
 }
 
 func newModel() (model){
@@ -77,16 +80,34 @@ func (m model) checkIfApiKeySet() tea.Msg {
   return result
 }
 
-func (m model) setApiKey(){
+func (m model) checkIfLangsInputEmpty() tea.Msg {
+  var result Msg[bool]
+  for _, v := range m.languages {
+    if len(v) == 0 {
+      result.value=false
+      return result
+    }
+  }
+  result.value=true
+  return result
+}
+
+func (m *model) setApiKey(){
   cfg, err := ini.Load(m.wakatime_cfg)
   if err!=nil {
     fmt.Printf("Error, %s occured trying to open %s", err, m.wakatime_cfg)
+    os.Exit(1)
   }
 
   cfg.Section("settings").NewKey("api_key", m.text_input.Value())
   if cfg.SaveTo(m.wakatime_cfg)!=nil {
     fmt.Printf("Failed to save %s file", m.wakatime_cfg)
+    os.Exit(1)
   }
+}
+
+func (m *model) setLanguages(){
+  m.languages = strings.Split(m.text_input.Value(), " ")
 }
 
 func (m model) Init() tea.Cmd {
@@ -100,14 +121,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
       switch msg.Type {
         case tea.KeyCtrlC: return m, tea.Quit
 	case tea.KeyEnter: {
-	  if m.state == ASKING_API_KEY {
-	    m.state = GOTTEN_API_KEY
-	    m.setApiKey()
-	    return m, textinput.Blink
+	  switch m.state {
+	    case ASKING_API_KEY: {
+	      m.state = SETUP_ASKING_LANGUAGE_TYPES
+	      m.setApiKey()
+	      return m, textinput.Blink
+	    }
+	    case ASKING_LANGUAGE_TYPES: {
+	      m.state = VALIDATE_GETTING_LANGUAGES
+	      m.setLanguages()
+	      return m, m.checkIfLangsInputEmpty
+	    }
 	  }
 	}
 	case tea.KeyCtrlV: {
-	  if m.state == ASKING_API_KEY {
+	  if m.state == ASKING_API_KEY || m.state == ASKING_LANGUAGE_TYPES {
 	    return m, textinput.Paste
 	  }
 	}
@@ -129,14 +157,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
       switch m.state {
 	case GOTTEN_HOME_DIR: {
 	  if msg.value == true {
-	    m.state = GOTTEN_API_KEY
-	    return m, nil
+	    m.state = SETUP_ASKING_LANGUAGE_TYPES
+	    return m, textinput.Blink
 	  }else{
 	    m.state = ASKING_API_KEY
 	    m.text_input.Placeholder= "Enter Wakatime Api Key"
 	    m.text_input.Width = 100
 	    m.text_input.CharLimit = 100
 	    m.text_input.Focus()
+	    return m, textinput.Blink
+	  }
+	}
+	case VALIDATE_GETTING_LANGUAGES: {
+	  if msg.value==true {
+	    m.state = DONE_GETTING_LANGUAGES
+	    return m, textinput.Blink
+	  }else{
+	    m.state = ASKING_LANGUAGE_TYPES
 	    return m, textinput.Blink
 	  }
 	}
@@ -148,10 +185,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
   switch m.state{
     //do this when starting
     case STARTING: return m, getHomeDir
-    case ASKING_API_KEY: {
+    case ASKING_API_KEY, ASKING_LANGUAGE_TYPES: {
       input, cmd := m.text_input.Update(msg);
       m.text_input = input
       return m, cmd
+    }
+    case SETUP_ASKING_LANGUAGE_TYPES: {
+      m.state = ASKING_LANGUAGE_TYPES
+      m.text_input = textinput.New()
+      m.text_input.Placeholder= "rs ts java...example of how to enter file extentions"
+      m.text_input.Width = 100
+      m.text_input.Focus()
+      return m, textinput.Blink
     }
   }
 
@@ -189,10 +234,18 @@ func (m model) View() string {
     case ASKING_API_KEY: {
       string_return += fmt.Sprintf("%s\n\n%s",m.showTitle("\nWhat is your api key?"), m.text_input.View())
     }
-    case GOTTEN_API_KEY: string_return += m.showTitle("\nSet api key")
+    case ASKING_LANGUAGE_TYPES: string_return += fmt.Sprintf("%s\n\n%s",
+      m.showTitle("\nWhat Languages You want to wakarize? \n"+
+      "(write the extention, and seperate with spaces for others\n"+
+      "eg: rs ts java\n"+
+      "This is for rust, typescript and java)"), m.text_input.View())
+
+    case DONE_GETTING_LANGUAGES: {
+      string_return += fmt.Sprintf("\nLANGS/EXTENTIONS: %s", m.languages)
+    }
   }
 
-  if m.state == ASKING_API_KEY {
+  if m.state == ASKING_API_KEY || m.state == ASKING_LANGUAGE_TYPES {
     string_return += "\nPress ctrl+v to paste"
   }
   string_return += m.showFooter("\nPress ctrl+c to quit ")
