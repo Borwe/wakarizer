@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	lipgloss "github.com/charmbracelet/lipgloss"
 	ini "gopkg.in/ini.v1"
@@ -22,7 +23,7 @@ const (
   SETUP_ASKING_LANGUAGE_TYPES
   ASKING_LANGUAGE_TYPES
   VALIDATE_GETTING_LANGUAGES
-  DONE_GETTING_LANGUAGES
+  START_MAIN_ACTIVITY
 )
 
 type model struct {
@@ -32,11 +33,20 @@ type model struct {
   file_type_index uint32
   state Status
   languages []string
+  language_index int
+  spinner spinner.Model
 }
 
 func newModel() (model){
-  text_in := textinput.New()
-  return model{ state: STARTING, text_input: text_in }
+  spin := spinner.New()
+  spin.Spinner = spinner.Dot
+  spin.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#11EE11"))
+
+  return model{ state: STARTING,
+    text_input: textinput.New(),
+    spinner: spin,
+    language_index: 0,
+  }
 }
 
 func getHomeDir() tea.Msg{
@@ -78,6 +88,15 @@ func (m model) checkIfApiKeySet() tea.Msg {
     result.value=true
   }
   return result
+}
+
+func (m *model) updateLanguageIndex(){
+  new_val := m.language_index+1
+  if( new_val == len(m.languages)){
+    m.language_index = 0
+  }else{
+    m.language_index = new_val
+  }
 }
 
 func (m model) checkIfLangsInputEmpty() tea.Msg {
@@ -170,8 +189,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	case VALIDATE_GETTING_LANGUAGES: {
 	  if msg.value==true {
-	    m.state = DONE_GETTING_LANGUAGES
-	    return m, textinput.Blink
+	    m.state = START_MAIN_ACTIVITY
+	    return m, m.spinner.Tick
 	  }else{
 	    m.state = ASKING_LANGUAGE_TYPES
 	    return m, textinput.Blink
@@ -197,6 +216,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
       m.text_input.Width = 100
       m.text_input.Focus()
       return m, textinput.Blink
+    }
+    case START_MAIN_ACTIVITY: {
+      var cmd tea.Cmd
+      m.updateLanguageIndex()
+      m.spinner, cmd = m.spinner.Update(msg)
+      return m, cmd
     }
   }
 
@@ -235,13 +260,14 @@ func (m model) View() string {
       string_return += fmt.Sprintf("%s\n\n%s",m.showTitle("\nWhat is your api key?"), m.text_input.View())
     }
     case ASKING_LANGUAGE_TYPES: string_return += fmt.Sprintf("%s\n\n%s",
-      m.showTitle("\nWhat Languages You want to wakarize? \n"+
+      m.showTitle("\nWhat Languages You want to wakarize, give atleast 1? \n"+
       "(write the extention, and seperate with spaces for others\n"+
       "eg: rs ts java\n"+
       "This is for rust, typescript and java)"), m.text_input.View())
 
-    case DONE_GETTING_LANGUAGES: {
+    case START_MAIN_ACTIVITY: {
       string_return += fmt.Sprintf("\nLANGS/EXTENTIONS: %s", m.languages)
+      string_return += fmt.Sprintf("\n %s -> %s %s\n", m.spinner.View(), "Doing Language: ", m.languages[m.language_index])
     }
   }
 
