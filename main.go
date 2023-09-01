@@ -84,13 +84,13 @@ func (m model) checkIfApiKeySet() tea.Msg {
   cfg, err := ini.Load(m.wakatime_cfg)
   if err!=nil {
     //probably file doesn't exist so create it
-    os.Create(m.wakatime_cfg)
-    cfg_n, err := ini.Load(m.wakatime_cfg)
+    f, err := os.OpenFile(m.wakatime_cfg, os.O_CREATE, 0777)
+    f.Close()
+    cfg, err = ini.Load(m.wakatime_cfg)
     if err!=nil {
       fmt.Printf("Error occured with loading config file: %s, with error: %s", m.wakatime_cfg, err)
       return tea.Quit
     }
-    cfg = cfg_n
   }
 
   if !cfg.HasSection("settings") {
@@ -197,6 +197,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	    return m, textinput.Blink
 	  }else{
 	    m.state = ASKING_API_KEY
+	    m.text_input.EchoMode = textinput.EchoPassword
 	    m.text_input.Placeholder= "Enter Wakatime Api Key"
 	    m.text_input.Width = 100
 	    m.text_input.CharLimit = 100
@@ -251,7 +252,7 @@ func (m model) showMainTitle() string {
     Foreground(lipgloss.Color("#FFFFFF")).
     Background(lipgloss.Color("#EE1111")).
     Border(lipgloss.DoubleBorder(), true).
-    Render("\nWelcome to Wakarizer\n")
+    Render("\nWelcome to Wakarizer\n by @Borwe brian.orwe@gmail.com\n")
 }
 
 func (m model) showTitle(title string) string {
@@ -290,9 +291,6 @@ func (m model) View() string {
 
   if m.state == ASKING_API_KEY || m.state == ASKING_LANGUAGE_TYPES {
     string_return += "\nPress ctrl+v to paste"
-  }
-  if m.state == START_MAIN_ACTIVITY {
-  string_return +=  "\nBOOM:=>"+m.getKey()
   }
   string_return += m.showFooter("\nPress ctrl+c to quit")
   return string_return
