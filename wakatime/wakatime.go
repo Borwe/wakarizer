@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"os"
 
-	//"time"
+	"time"
 
 	"github.com/spf13/viper"
 	"github.com/wakatime/wakatime-cli/cmd/heartbeat"
@@ -36,14 +36,14 @@ func Execute(lang string, key string){
   file.WriteString(fmt.Sprintf("YOLO BABY %d", rand.Intn(999999999)))
   file.Close()
 
-  result, err := heartbeat.Run(viper)
-  if result!=0 || err!=nil {
-    fmt.Printf("ERROR: %s",err)
+  _, err = heartbeat.Run(viper)
+  if  err!=nil {
+    //fmt.Printf("ERROR: %s",err) uncomment to see debug info
   }
 
   os.Remove(file.Name())
 
-  //time.Sleep(time.Second * 3)
+  time.Sleep(time.Second * 3)
   //fmt.Printf("KEY: %s FILE: %s",key, file) //print where the file is located
   // Comment out bellow for testing execution
   //os.Exit(1)
