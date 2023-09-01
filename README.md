@@ -23,6 +23,18 @@ With Go awesomeness, was able to use the [wakatime-cli](https://github.com/wakat
 
 
 
+## Build from Source:
+
+Just do the simple commands bellow.
+
+```sh
+go mod tidy && go build
+```
+
+
+
+
+
 ## Contributions:
 
 This is an opensource project, be free to fork, contribute Pull Requests, or even post on the issue tracker.
