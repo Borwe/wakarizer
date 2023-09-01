@@ -28,6 +28,7 @@ jobs:
 
       - name: Go build
         run: |
+          go mod tidy
           go build
 
       - name: Zip file Unix
