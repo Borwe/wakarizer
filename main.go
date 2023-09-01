@@ -8,9 +8,9 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
-	lipgloss "github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss"
 	ini "gopkg.in/ini.v1"
-	//wakatime_cli "github.com/wakatime/wakatime-cli/cmd"
+	"wakarizer/wakatime"
 )
 
 type Status int
@@ -57,8 +57,25 @@ func getHomeDir() tea.Msg{
   }
 
   var result Msg[string]
-  result.value = home+string(os.PathSeparator)+".wakatime.test.cfg"
+  result.value = home+string(os.PathSeparator)+".wakarizer.cfg"
   return result
+}
+
+func (m model) getKey() string {
+  cfg,  err := ini.Load(m.wakatime_cfg)
+  if err!=nil {
+    fmt.Printf("Couldn't load cfg file from %s\n", m.wakatime_cfg)
+    os.Exit(1)
+  }
+
+  return cfg.Section("settings").Key("api_key").String()
+}
+
+// Perform the actual wakatime hearbeat
+func (m *model) doHeartBeat() {
+  key := m.getKey()
+  wakatime.Execute(m.languages[m.language_index], key)
+  m.updateLanguageIndex()
 }
 
 // Returns true if api-key field is set
@@ -218,8 +235,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
       return m, textinput.Blink
     }
     case START_MAIN_ACTIVITY: {
+      m.doHeartBeat()
       var cmd tea.Cmd
-      m.updateLanguageIndex()
       m.spinner, cmd = m.spinner.Update(msg)
       return m, cmd
     }
@@ -274,7 +291,10 @@ func (m model) View() string {
   if m.state == ASKING_API_KEY || m.state == ASKING_LANGUAGE_TYPES {
     string_return += "\nPress ctrl+v to paste"
   }
-  string_return += m.showFooter("\nPress ctrl+c to quit ")
+  if m.state == START_MAIN_ACTIVITY {
+  string_return +=  "\nBOOM:=>"+m.getKey()
+  }
+  string_return += m.showFooter("\nPress ctrl+c to quit")
   return string_return
 }
 
