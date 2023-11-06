@@ -1,12 +1,13 @@
 module wakarizer
 
-go 1.18
+go 1.21
+
+toolchain go1.21.3
 
 require (
 	github.com/charmbracelet/bubbles v0.16.1
 	github.com/charmbracelet/bubbletea v0.24.2
 	github.com/charmbracelet/lipgloss v0.8.0
-	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
 	github.com/wakatime/wakatime-cli v1.78.0
 	gopkg.in/ini.v1 v1.67.0
@@ -25,7 +26,6 @@ require (
 	github.com/gandarez/go-realpath v1.0.0 // indirect
 	github.com/golang/mock v1.5.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/juju/clock v1.0.3 // indirect
 	github.com/juju/errors v1.0.0 // indirect
 	github.com/juju/loggo v1.0.0 // indirect
