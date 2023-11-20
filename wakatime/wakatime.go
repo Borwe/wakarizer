@@ -14,7 +14,7 @@ import (
 )
 
 func Execute(lang string, key string) {
-	_, w, error := os.Pipe()
+	r, w, error := os.Pipe()
 	if error != nil {
 		fmt.Fprintln(os.Stderr, "Error creating Pipe")
 		os.Exit(1)
@@ -45,6 +45,9 @@ func Execute(lang string, key string) {
 	if err != nil {
 		//fmt.Printf("ERROR: %s",err) uncomment to see debug info
 	}
+
+	r.Close()
+	w.Close()
 
 	os.Remove(file.Name())
 
