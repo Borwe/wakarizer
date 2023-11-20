@@ -11,7 +11,6 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/wakatime/wakatime-cli/pkg/log"
 	ini "gopkg.in/ini.v1"
 )
 
@@ -67,12 +66,6 @@ func (l *LanguagesInfo) updateLanguageIndex() {
 // Perform the actual wakatime hearbeat
 func (l *LanguagesInfo) doHeartBeat() {
 	key := l.getKey()
-	_, w, error := os.Pipe()
-	if error != nil {
-		fmt.Fprintln(os.Stderr, "Error creating Pipe")
-		os.Exit(1)
-	}
-	log.SetOutput(w)
 	for {
 		wakatime.Execute(l.languages[l.language_index], key)
 		l.updateLanguageIndex()

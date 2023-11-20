@@ -9,10 +9,17 @@ import (
 
 	"github.com/spf13/viper"
 	"github.com/wakatime/wakatime-cli/cmd/heartbeat"
+	"github.com/wakatime/wakatime-cli/pkg/log"
 	"gopkg.in/ini.v1"
 )
 
 func Execute(lang string, key string) {
+	_, w, error := os.Pipe()
+	if error != nil {
+		fmt.Fprintln(os.Stderr, "Error creating Pipe")
+		os.Exit(1)
+	}
+	log.SetOutput(w)
 	iniOption := viper.IniLoadOptions(ini.LoadOptions{
 		AllowPythonMultilineValues: true,
 	})
